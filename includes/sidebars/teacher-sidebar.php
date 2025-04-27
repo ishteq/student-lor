@@ -1,0 +1,15 @@
+<nav>
+    <ul class="metismenu" id="menu">
+
+        <li class="<?php if($page=='dashboard') {echo 'active';} ?>">
+            <a href="dashboard.php" aria-expanded="true"><i class="ti-user"></i><span>Dashboard
+                </span></a>
+        </li>
+
+        <li class="<?php if($page=='pro-lor') {echo 'active';} ?>">
+            <a href="listprocess.php" aria-expanded="true"><i class="ti-agenda"></i><span>Process
+                    LOR
+                </span></a>
+        </li>
+    </ul>
+</nav>
