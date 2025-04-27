@@ -10,20 +10,23 @@ if (strlen($_SESSION['studlogin']) == 0) {
 }
 if (isset($_POST['apply'])) {
 
-    $teacid = $_POST['teacher'];
+    $teachers = $_POST['teachers'];
     $date = date("Y-m-d");
     $time = date("H:i:s");
     $status = "0";
 
-    $sql = "INSERT INTO req_lor(stud_id, teac_id, status, date, time,description) VALUES(:studid,:teacid,:status,:date,:time, '-')";
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':studid', $studid, PDO::PARAM_STR);
-    $query->bindParam(':teacid', $teacid, PDO::PARAM_STR);
-    $query->bindParam(':status', $status, PDO::PARAM_STR);
-    $query->bindParam(':date', $date, PDO::PARAM_STR);
-    $query->bindParam(':time', $time, PDO::PARAM_STR);
+    foreach ($teachers as $teacid) {
+        $sql = "INSERT INTO req_lor (stud_id, teac_id, status, date, time, description)
+                VALUES (:studid, :teacid, :status, :date, :time, '-')";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':studid', $studid, PDO::PARAM_STR);
+        $query->bindParam(':teacid', $teacid, PDO::PARAM_STR);
+        $query->bindParam(':status', $status, PDO::PARAM_STR);
+        $query->bindParam(':date', $date, PDO::PARAM_STR);
+        $query->bindParam(':time', $time, PDO::PARAM_STR);
 
-    $query->execute();
+        $query->execute();
+    }
     $lastInsertId = $dbh->lastInsertId();
 
     if ($lastInsertId) {
@@ -143,19 +146,29 @@ $teachers = $teacherQuery->fetchAll(PDO::FETCH_ASSOC);
                         <div class="formpart card" style="width: 100%; margin: 20px 0;">
                             <h1 style="margin: 20px;">Apply for LOR</h1>
                             <form action="lor.php" id="reqform" method="post" style="margin: 0 20px;">
-                                <div class="form-group">
-                                    <label for="teacher">Select Teacher:</label>
-                                    <select class="form-control" id="teacher" name="teacher" style="width: 100%;">
-                                        <option value="-1" selected>Select Teacher for LOR</option>
+                                <?php if (count($teachers) > 0) { ?>
+                                    <div class="form-group" id="teachers">
+                                        <label>Select Teacher(s):</label><br>
                                         <?php foreach ($teachers as $teacher) { ?>
-                                            <option value="<?php echo $teacher['id']; ?>">
-                                                <?php echo $teacher['first_name']; ?>
-                                            </option>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="teachers[]"
+                                                    value="<?php echo $teacher['id']; ?>"
+                                                    id="teacher_<?php echo $teacher['id']; ?>">
+                                                <label class="form-check-label" for="teacher_<?php echo $teacher['id']; ?>">
+                                                    <?php echo htmlspecialchars($teacher['first_name'] . ' ' . $teacher['last_name']); ?>
+                                                </label>
+                                            </div>
                                         <?php } ?>
-                                    </select>
-                                </div>
-                                <button id="subbutton" type="submit" name="apply" class="btn btn-primary"
-                                    style="margin-bottom: 20px;">Apply</button>
+                                    </div>
+
+                                    <button id="subbutton" type="submit" name="apply" class="btn btn-primary"
+                                        style="margin-bottom: 20px;">Apply</button>
+
+                                <?php } else { ?>
+                                    <div style="text-align:center; margin: 50px 0; color: red;">
+                                        <h4>No teachers available for LOR request.</h4>
+                                    </div>
+                                <?php } ?>
                             </form>
                         </div>
                     </div>
@@ -290,26 +303,30 @@ $teachers = $teacherQuery->fetchAll(PDO::FETCH_ASSOC);
 </body>
 <script>
     $(document).ready(function () {
-        var submitButton = $('#subbutton')
-        submitButton.prop('disabled', true); // Disable the submit button initially
-        submitButton.css('cursor', 'not-allowed'); // Change the cursor to "not-allowed" when disabled
+        var submitButton = $('#subbutton');
+        submitButton.prop('disabled', true); // Disable submit button initially
+        submitButton.css('cursor', 'not-allowed'); // Change cursor to not-allowed
 
-        $('#teacher').on('change', function () {
-            if ($(this).val() !== '-1') {
-                submitButton.prop('disabled', false); // Disable the submit button initially
-                submitButton.css('cursor', 'pointer'); // Change the cursor to "not-allowed" when disabled
+        // Enable or disable button when checkboxes change
+        $('#teachers input[type="checkbox"]').on('change', function () {
+            if ($('#teachers input[type="checkbox"]:checked').length > 0) {
+                submitButton.prop('disabled', false);
+                submitButton.css('cursor', 'pointer');
             } else {
-                submitButton.prop('disabled', true); // Disable the submit button initially
-                submitButton.css('cursor', 'not-allowed'); // Change the cursor to "not-allowed" when disabled
+                submitButton.prop('disabled', true);
+                submitButton.css('cursor', 'not-allowed');
             }
         });
+
+        // Prevent form submission if no checkbox is selected
         $('form#reqform').submit(function (event) {
-            if ($('#teacher').val() == '-1') {
+            if ($('#teachers input[type="checkbox"]:checked').length === 0) {
                 event.preventDefault();
-                $('subbutton').
-                    alert('Please select a teacher');
+                alert('Please select at least one teacher.');
             }
         });
     });
+
 </script>
+
 </html>

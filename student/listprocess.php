@@ -47,7 +47,7 @@ if (isset($_POST['upload'])) {
             // Update pro_lor status after successful file upload
             $sql2 = "UPDATE pro_lor SET freeze='2', selected_university=:selected_uni, admit_path=:file_path, admit_time=CURTIME(), admit_date=CURDATE() WHERE stud_id=:stud_id AND teac_id=:teac_id";
             $query2 = $dbh->prepare($sql2);
-            $query2->bindParam(':file_path', $target_file, PDO::PARAM_STR);
+            $query2->bindParam(':file_path', $newFileName, PDO::PARAM_STR);
             $query2->bindParam(':stud_id', $student_id, PDO::PARAM_INT);
             $query2->bindParam(':teac_id', $teacher_id, PDO::PARAM_INT);
             $query2->bindParam(':selected_uni', $selected_uni, PDO::PARAM_STR);

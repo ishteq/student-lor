@@ -44,52 +44,92 @@ if (isset($_POST['submit'])) {
     $student_id = $_POST['student_id']; // Fetch student ID from POST request
     $file_names = $_POST['file_names']; // File descriptions (e.g., GRE Score)
     $files = $_FILES['files'];          // Uploaded files
-    $teacher_id = $_POST['teacher_id'];                    // Assuming teacher ID is constant for now
+    $teacher_id = $_POST['teacher_id']; // Assuming teacher ID is constant for now
     $universities = implode(", ", $_POST['universities']);
-    $skill = $_POST['skill'];
     // Directory where files will be uploaded
     $upload_dir = "uploads/";
-    try {
-        // Process each uploaded file
-        for ($i = 0; $i < count($files['name']); $i++) {
-            $originalFileName = basename($files['name'][$i]);
-            $tempFilePath = $files['tmp_name'][$i];
+    if (isset($_POST['file_names']) && !empty($_POST['file_names']) && isset($_FILES['files']) && !empty($_FILES['files']['name'])) {
+        $file_names = $_POST['file_names']; // File descriptions (e.g., GRE Score)
+        $files = $_FILES['files']; // Uploaded files
+        try {
+            // Process each uploaded file
+            for ($i = 0; $i < count($files['name']); $i++) {
+                $originalFileName = basename($files['name'][$i]);
+                $tempFilePath = $files['tmp_name'][$i];
 
-            $ext = pathinfo($originalFileName, PATHINFO_EXTENSION);
-            $baseName = pathinfo($originalFileName, PATHINFO_FILENAME);
+                $ext = pathinfo($originalFileName, PATHINFO_EXTENSION);
+                $baseName = pathinfo($originalFileName, PATHINFO_FILENAME);
 
-            // Make it unique and safe
-            $safeBaseName = preg_replace('/[^a-zA-Z0-9-_]/', '_', strtolower($baseName)); // replace spaces/special chars with "_"
-            $newFileName = $safeBaseName . '_' . time() . '_' . $i . '.' . $ext; // timestamp + index to avoid conflict
+                // Make it unique and safe
+                $safeBaseName = preg_replace('/[^a-zA-Z0-9-_]/', '_', strtolower($baseName)); // replace spaces/special chars with "_"
+                $newFileName = $safeBaseName . '_' . time() . '_' . $i . '.' . $ext; // timestamp + index to avoid conflict
 
-            $target_file = $upload_dir . $newFileName;
-            // Move the file to the server
-            if (move_uploaded_file($tempFilePath, $target_file)) {
-                // Insert file information into student_docs table
-                $sql = "INSERT INTO student_docs (stud_id, teac_id, doc_name, doc_path,date , time) 
+                $target_file = $upload_dir . $newFileName;
+                // Move the file to the server
+                if (move_uploaded_file($tempFilePath, $target_file)) {
+                    // Insert file information into student_docs table
+                    $sql = "INSERT INTO student_docs (stud_id, teac_id, doc_name, doc_path, date, time) 
                             VALUES (:student_id, :teacher_id, :file_name, :file_path, CURDATE(), CURTIME())";
-                $query = $dbh->prepare($sql);
-                $query->bindParam(':student_id', $student_id, PDO::PARAM_INT);
-                $query->bindParam(':teacher_id', $teacher_id, PDO::PARAM_INT);
-                $query->bindParam(':file_name', $file_names[$i], PDO::PARAM_STR);
-                $query->bindParam(':file_path', $target_file, PDO::PARAM_STR);
-                $query->execute();
-            } else {
-                echo "Failed to upload file: " . $file_name;
-            }
-        }
-        $sql5 = "UPDATE pro_lor SET status='2', university=:university, skill=:skill WHERE stud_id=:stud_id AND teac_id=:teac_id";
-        $query5 = $dbh->prepare($sql5);
-        $query5->bindParam(':stud_id', $student_id, PDO::PARAM_STR);
-        $query5->bindParam(':teac_id', $teacher_id, PDO::PARAM_STR);
-        $query5->bindParam(':university', $universities, PDO::PARAM_STR);
-        $query5->bindParam(':skill', $skill, PDO::PARAM_STR);
+                    $query = $dbh->prepare($sql);
+                    $query->bindParam(':student_id', $student_id, PDO::PARAM_INT);
+                    $query->bindParam(':teacher_id', $teacher_id, PDO::PARAM_INT);
+                    $query->bindParam(':file_name', $file_names[$i], PDO::PARAM_STR);
+                    $query->bindParam(':file_path', $newFileName, PDO::PARAM_STR);
+                    $query->execute();
 
-        $query5->execute();
-        //Optionally, redirect after successful submission.
-        header('location:listprocess.php');
-    } catch (PDOException $e) {
-        echo "Error: " . $e->getMessage();  // Display any PDO exceptions for debugging.
+                    // Check if the uploaded file is a PDF and if compression is needed
+                    if (strtolower($ext) === 'pdf') {
+                        // Compress the PDF
+                        $compressedFilePath = compressPDF($target_file, $upload_dir, $newFileName);
+                    }
+                } else {
+                    echo "Failed to upload file: " . $originalFileName;
+                }
+            }
+        } catch (PDOException $e) {
+            echo "Error: " . $e->getMessage();  // Display any PDO exceptions for debugging
+        }
+    }
+    // Update pro_lor table after successful upload
+    $sql5 = "UPDATE pro_lor SET status='2', university=:university WHERE stud_id=:stud_id AND teac_id=:teac_id";
+    $query5 = $dbh->prepare($sql5);
+    $query5->bindParam(':stud_id', $student_id, PDO::PARAM_STR);
+    $query5->bindParam(':teac_id', $teacher_id, PDO::PARAM_STR);
+    $query5->bindParam(':university', $universities, PDO::PARAM_STR);
+    $query5->execute();
+
+    // Redirect after successful submission
+    header('location:listprocess.php');
+
+}
+
+function compressPDF($source, $upload_dir, $newFileName)
+{
+    // Path to Ghostscript executable (adjust based on your server setup)
+    $gs = '"C:\\Program Files\\gs\\gs10.05.0\\bin\\gswin64c.exe"'; // For Windows
+    // If you're on Linux, the command might look like this:
+    // $gs = '/usr/bin/gs'; // For Linux, adjust the path if necessary
+
+    // Define the compressed PDF's path
+    $compressedFilePath = $upload_dir . 'compressed_' . $newFileName;
+
+    // Build the Ghostscript command to compress the PDF
+    $command = $gs . ' -dNOPAUSE -dBATCH -dQUIET -sDEVICE=pdfwrite ' .
+        '-dCompatibilityLevel=1.4 ' .
+        '-dPDFSETTINGS=/ebook ' .  // Adjust compression settings here (e.g., /screen, /ebook)
+        '-sOutputFile=' . escapeshellarg($compressedFilePath) . ' ' .
+        escapeshellarg($source);
+
+    // Execute the command
+    exec($command . ' 2>&1', $output, $return_var);
+
+    // Check for errors in Ghostscript execution
+    if ($return_var !== 0) {
+        echo "<pre>Ghostscript Error:\n" . implode("\n", $output) . "</pre>";
+        return false;
+    } else {
+        echo "✅ Compression Successful!<br>";
+        return $compressedFilePath;
     }
 }
 // Fetch student profile details

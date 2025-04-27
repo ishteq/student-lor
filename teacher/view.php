@@ -29,8 +29,7 @@ if (!$doc) {
 }
 
 // Secure file path (outside htdocs)
-$secure_path = "C:/uploads/" . $doc->doc_path;
-
+$secure_path = "C:/xampp/htdocs/student-lor/student/uploads/" . $doc->doc_path;
 if (!file_exists($secure_path)) {
     http_response_code(404);
     exit("File not found.");
